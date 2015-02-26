@@ -2,7 +2,7 @@
     Extensible validation for Python dictionaries.
     This module implements Cerberus Validator class
 
-    :copyright: 2012-2014 by Nicola Iarocci.
+    :copyright: 2012-2015 by Nicola Iarocci.
     :license: ISC, see LICENSE for more details.
 
     Full documentation is available at http://cerberus.readthedocs.org/
@@ -58,6 +58,7 @@ class Validator(object):
                           field error' un validation.
 
     .. versionadded: 0.8
+      'dependencies' also support a dict of dependencies.
       'allow_unknown' can be a schema used to validate unknown fields.
        Support for function-based validation mode.
 
@@ -130,7 +131,7 @@ class Validator(object):
         return self._errors
 
     def validate_update(self, document, schema=None, context=None):
-        """ Validates a Python dicitionary against a validation schema. The
+        """ Validates a Python dictionary against a validation schema. The
         difference with :func:`validate` is that the ``required`` rule will be
         ignored here.
 
@@ -256,8 +257,8 @@ class Validator(object):
                     if isinstance(self.allow_unknown, Mapping):
                         # validate that unknown fields matches the schema
                         # for unknown_fields
-                        unknown_validator = Validator({field:
-                                                       self.allow_unknown})
+                        unknown_validator = \
+                            self.__class__({field: self.allow_unknown})
                         if not unknown_validator.validate({field: value}):
                             self._error(field, unknown_validator.errors[field])
                     else:
@@ -503,6 +504,28 @@ class Validator(object):
                                     dependency)
                     else:
                         return False
+
+        # If dependencies is dict then we check just the present of attr and
+        # the value of attr
+        elif isinstance(dependencies, Mapping):
+            for dep_name, dep_values in dependencies.items():
+                if not isinstance(dep_values, Sequence):
+                    dep_values = [dep_values]
+                if dep_name not in document:
+                    if not break_on_error:
+                        self._error(field, errors.ERROR_DEPENDENCIES_FIELD %
+                                    dep_name)
+                        break
+                    else:
+                        return False
+                if document[dep_name] not in dep_values:
+                    if not break_on_error:
+                        self._error(field,
+                                    errors.ERROR_DEPENDENCIES_FIELD_VALUE
+                                    % (dep_name, dep_values))
+                    else:
+                        return False
+
         return True
 
     def _validate_validator(self, validator, field, value):
